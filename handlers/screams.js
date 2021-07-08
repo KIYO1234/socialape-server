@@ -115,7 +115,6 @@ exports.commentOnScream = (req, res) => {
                 return res.status(404).json({ error: 'Scream not found' });
             }
             // return db.collection('comments').add(newComment)
-            console.log(doc.data())
             
             return doc.ref.update({commentCount: doc.data().commentCount + 1})
         })
@@ -156,21 +155,17 @@ exports.commentOnScream = (req, res) => {
 
 // Fetch All Comments
 exports.fetchAllComments = async (req, res) => {
-  console.log('fetchAllComments', req.body);
   const comments = [];
   await db
     .collection('comments')
     .orderBy('createdAt', 'desc')
     .get()
     .then(snapshot => snapshot.forEach(doc => {
-      console.log(doc.data());
       comments.push(doc.data());
     }))
     .catch(err => {
       res.status(500).json({ error: err.code });
     });
-
-  console.log('comments', comments);
   return res.json(comments);
 };
 

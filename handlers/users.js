@@ -12,13 +12,11 @@ exports.signup = (req, res) => {
         confirmPassword: req.body.confirmPassword,
         handle: req.body.handle,
     }
-
     const { valid, errors } = validateSignupData(newUser);
-
+    // 空かどうかの判定
     if (!valid) {
         return res.status(400).json(errors);
     }
-
     // アイコン写真がなかったらstorageにあるperson.pngをアイコン画像に設定する
     const noImg = 'person.jpg'
 
@@ -79,18 +77,15 @@ exports.signup = (req, res) => {
 // Log user in
 exports.login = (req, res) => {
     // console.log(req.body)
-    
     const user = {
         email: req.body.email,
         password: req.body.password
     };
-
     const { valid, errors } = validateLoginData(user);
-
     if (!valid) {
+        console.log('invalid error', errors);
         return res.status(400).json(errors);
     }
-
     firebase
         .auth()
         .signInWithEmailAndPassword(user.email, user.password)
@@ -102,7 +97,7 @@ exports.login = (req, res) => {
             return res.json({ token })
         })
         .catch(err => {
-            console.error(err);
+            console.error('firebase error: ', err);
             // return res.status(500).json({error: err.code})
             return res
                 .status(403)
