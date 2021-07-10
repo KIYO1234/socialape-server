@@ -169,6 +169,34 @@ exports.fetchAllComments = async (req, res) => {
   return res.json(comments);
 };
 
+// Fetch related comments
+exports.fetchRelatedComments = async (req, res) => {
+  console.log('fetchRelatedComments', req.params);
+  const screamId = req.params.screamId;
+  let screams = [];
+  await db
+    .collection('/comments')
+    .orderBy('createdAt', 'desc')
+    .where('screamId', '==', screamId)
+    .get()
+    .then(snapshot => snapshot.forEach(
+      doc => screams.push(doc.data())
+    ));
+  // console.log('screams', screams)
+  return res.json(screams);
+}
+
+// Fetch all likes
+exports.fetchAllLikes = async (req, res) => {
+  let likes = []
+  await db
+    .collection('likes')
+    .get()
+    .then(snapshot => snapshot.forEach(doc =>
+      likes.push(doc.data())
+    ))
+  return res.json(likes);
+}
 
 // Like a scream
 exports.likeScream = (req, res) => {    

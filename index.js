@@ -14,6 +14,8 @@ const {
     deleteScream,
     getAllComments,
     fetchAllComments,
+    fetchRelatedComments,
+    fetchAllLikes,
 } = require('./handlers/screams');
 const {
     signup,
@@ -38,10 +40,13 @@ app.post('/scream/:screamId/comment', FBAuth, commentOnScream)
 app.delete('/scream/:screamId', FBAuth, deleteScream);
 app.get('/scream/:screamId/like', FBAuth, likeScream);
 app.get('/scream/:screamId/unlike', FBAuth, unlikeScream);
+app.get('/comments', fetchAllComments);
+app.get('/comments/:screamId', fetchRelatedComments);
+app.get('/likes', fetchAllLikes);
+
 // Get all comments（ログインしてなくても見れるようにFBAuthは付けない）
 // app.get('/scream/:screamId/comments', getAllComments);
 // pathを'/scream/comments'にすると、comments部分が:screamIdだと認識されてしまう→pathを'/comments'に変更
-app.get('/comments', fetchAllComments);
 
 // Users routes
 app.post('/signup', signup);
