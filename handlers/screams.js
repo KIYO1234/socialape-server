@@ -1,21 +1,12 @@
-const { _refWithOptions } = require('firebase-functions/lib/providers/database');
-const { defaultDatabase } = require('firebase-functions/lib/providers/firestore');
 const { db } = require('../util/admin')
-// const firebase = require('firebase')
-const { axios } = require('axios');
-
-// dayjs
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 dayjs.extend(require('dayjs/plugin/timezone'))
 dayjs.extend(require('dayjs/plugin/utc'))
 dayjs.tz.setDefault('Asia/Tokyo');
 dayjs.extend(utc);
-dayjs.tz.setDefault('Asia/Tokyo')
-console.log('time', dayjs.tz().format());
 
 exports.getAllScreams = (req, res) => {    
-    // admin.firestore().collection('screams').orderBy('createdAt', 'desc').get().then(snapshot => {
     db
         .collection('screams')
         .orderBy('createdAt', 'desc')
@@ -23,8 +14,6 @@ exports.getAllScreams = (req, res) => {
         .then(snapshot => {
             let screams = [];
             snapshot.forEach(doc => {
-                // idを同時に追加しておく
-                // screams.push(doc.data())
                 screams.push({
                   screamId: doc.id,
                   body: doc.data().body,
@@ -41,33 +30,20 @@ exports.getAllScreams = (req, res) => {
 }
 
 exports.postOneScream = (req, res) => {    
-    // app.postにしたらpostが確定なので下のがいらなくなる▼
-    // if (req.method !== 'POST') {
-    //     return res.status(400).json({error: 'Method is incorrect'})
-    // }
-
-    // post を受け取っているはず
     const newScream = {
       body: req.body.body,
-      // userHandle: req.body.userHandle,
       userHandle: req.user.handle,
-      // createdAt: admin.firestore.Timestamp.fromDate(new Date())
-      // createdAt: new Date().toISOString(),
       createdAt: dayjs.tz().format(),
       userImage: req.user.imageUrl,
       likeCount: 0,
       commentCount: 0,
-      //追記
-      isLikedByUser: false,
     }
-    // admin.firestore()
     db
         .collection('screams')
         .add(newScream)
         .then(doc => {
             const resScream = newScream;
             resScream.screamId = doc.id;
-            // res.json({ message: `document ${doc.id} created successfully!` })
             res.json(resScream)
         })
         .catch(err => {
@@ -76,10 +52,8 @@ exports.postOneScream = (req, res) => {
         })
 }
 
-// Fetch one scream
 exports.getScream = (req, res) => {
     let screamData = {};
-    // パラメーターが欲しいときはreq.params
     db.doc(`/screams/${req.params.screamId}`).get()
         .then(doc => {
             if (!doc.exists) {
@@ -106,20 +80,12 @@ exports.getScream = (req, res) => {
         });
 }
 
-// Comment on a scream
-exports.commentOnScream = (req, res) => {
-  // const body = JSON.parse(req.body)
-  // console.log(body.body)
-  console.log('commentOnScream.body', req.body);
-  // console.log('commentOnScream.scream', req.scream);
-  // console.log('time', dayjs.tz().format());
-  
+exports.commentOnScream = (req, res) => {  
   if (req.body.body.trim() === '') {
     return res.status(400).json({ comment: 'Must not be empty'})
   };
   const newComment = {
     body: req.body.body,
-    // createdAt: new Date().toISOString(),
     createdAt: dayjs.tz().format(),
     screamId: req.params.screamId,
     userHandle: req.user.handle,
@@ -130,9 +96,7 @@ exports.commentOnScream = (req, res) => {
     .then(doc => {            
         if (!doc.exists) {
             return res.status(404).json({ error: 'Scream not found' });
-        }
-        // return db.collection('comments').add(newComment)
-        
+        }        
         return doc.ref.update({commentCount: doc.data().commentCount + 1})
     })
     .then(() => {
@@ -151,9 +115,6 @@ exports.commentOnScream = (req, res) => {
         type: 'comment'
       }
       db.collection('/notifications').add(notification)
-        .then(snapshot => {
-          console.log('notifications snapshot: ', snapshot)
-        });
     })
     .catch(err => {
         console.log(err);
@@ -161,29 +122,6 @@ exports.commentOnScream = (req, res) => {
     })
 }
 
-// // Get all comments
-// exports.getAllComments = async(req, res) => {
-//   console.log('getAllComments', req.params.screamId);
-//   const screamId = req.params.screamId;
-//   const comments = [];
-//   await db
-//     .collection('comments')
-//     .where('screamId', '==', screamId)
-//     .orderBy('createdAt', 'desc')
-//     .get()
-//     .then(snapshot => snapshot.forEach(doc => {
-//       console.log(doc.data());
-//       comments.push(doc.data());
-//     }))
-//     .catch(err => {
-//       res.status(500).json({ error: err.code });
-//     });
-  
-//   console.log('comments', comments);
-//   return res.json(comments);
-// };
-
-// Fetch All Comments
 exports.fetchAllComments = async (req, res) => {
   const comments = [];
   await db
@@ -199,7 +137,6 @@ exports.fetchAllComments = async (req, res) => {
   return res.json(comments);
 };
 
-// Fetch related comments
 exports.fetchRelatedComments = async (req, res) => {
   console.log('fetchRelatedComments', req.params);
   const screamId = req.params.screamId;
@@ -212,11 +149,9 @@ exports.fetchRelatedComments = async (req, res) => {
     .then(snapshot => snapshot.forEach(
       doc => screams.push(doc.data())
     ));
-  // console.log('screams', screams)
   return res.json(screams);
 }
 
-// Fetch all likes
 exports.fetchAllLikes = async (req, res) => {
   let likes = []
   await db
@@ -228,15 +163,11 @@ exports.fetchAllLikes = async (req, res) => {
   return res.json(likes);
 }
 
-// Like a scream
 exports.likeScream = (req, res) => {    
     const likeDocument = db.collection('likes').where('userHandle', '==', req.user.handle)
         .where('scramId', '==', req.params.screamId).limit(1);
-    
     const screamDocument = db.doc(`/screams/${req.params.screamId}`);
-
     let screamData;
-
     screamDocument.get()
         .then(doc => {
             if (doc.exists) {
@@ -248,7 +179,6 @@ exports.likeScream = (req, res) => {
             };
         })
         .then(data => {
-            // console.log(data)
             if (data.empty) {
                 return db.collection('likes').add({
                     screamId: req.params.screamId,
@@ -278,33 +208,24 @@ exports.unlikeScream = (req, res) => {
   const likeDocument = db
     .collection('likes')
     .where('userHandle', '==', req.user.handle)
-    .where('screamId', '==', req.params.screamId)
-    // .limit(1);
-    
+    .where('screamId', '==', req.params.screamId)    
   const screamDocument = db.doc(`/screams/${req.params.screamId}`);  
-    
   let screamData;
-
   screamDocument
     .get()
       .then((doc) => {
-          
           if (doc.exists) {
               screamData = doc.data();
               screamData.screamId = doc.id;
-            //   console.log(screamData) // OK
         return likeDocument.get();
       } else {
         return res.status(404).json({ error: 'Scream not found' });
       }
     })
       .then((data) => {
-        // console.log(data)  // snapshot
       if (data.empty) {
         return res.status(400).json({ error: 'Scream not liked' });
-      } else {
-        //   console.log(data.docs[0])
-          
+      } else {          
         return db
           .doc(`/likes/${data.docs[0].id}`)
           .delete()
@@ -327,10 +248,7 @@ exports.unlikeScream = (req, res) => {
     });
 };
 
-// Delete a scream
-exports.deleteScream = (req, res) => {
-    // console.log(req.params.screamId)
-    
+exports.deleteScream = (req, res) => {    
   const document = db.doc(`/screams/${req.params.screamId}`);
   document
     .get()
