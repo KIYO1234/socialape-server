@@ -3,6 +3,7 @@ const firebase = require('firebase');
 const config = require('../util/config')
 firebase.initializeApp(config);
 const { validateSignupData, validateLoginData, reduceUserDetails } = require('../util/validators');
+const dayjs = require('dayjs');
 
 // Sign user up
 exports.signup = (req, res) => {
@@ -192,7 +193,6 @@ exports.getAuthenticatedUser = (req, res) => {
         })
         .then(data => {
             // console.log(data)
-            
             userData.notifications = [];
             data.forEach(doc => {
                 userData.notifications.push({
@@ -280,6 +280,8 @@ exports.uploadImage = (req, res) => {
 }
 
 exports.markNotificationsRead = (req, res) => {
+    console.log('read', req.body)
+    
     let batch = db.batch();
     req.body.forEach(notificationId => {
         const notification = db.doc(`/notifications/${notificationId}`);

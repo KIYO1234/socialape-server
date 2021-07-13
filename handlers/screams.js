@@ -2,7 +2,18 @@ const { _refWithOptions } = require('firebase-functions/lib/providers/database')
 const { defaultDatabase } = require('firebase-functions/lib/providers/firestore');
 const { db } = require('../util/admin')
 // const firebase = require('firebase')
- 
+const { axios } = require('axios');
+
+// dayjs
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+dayjs.extend(require('dayjs/plugin/timezone'))
+dayjs.extend(require('dayjs/plugin/utc'))
+dayjs.tz.setDefault('Asia/Tokyo');
+dayjs.extend(utc);
+dayjs.tz.setDefault('Asia/Tokyo')
+console.log('time', dayjs.tz().format());
+
 exports.getAllScreams = (req, res) => {    
     // admin.firestore().collection('screams').orderBy('createdAt', 'desc').get().then(snapshot => {
     db
@@ -15,13 +26,13 @@ exports.getAllScreams = (req, res) => {
                 // idを同時に追加しておく
                 // screams.push(doc.data())
                 screams.push({
-                    screamId: doc.id,
-                    body: doc.data().body,
-                    userHandle: doc.data().userHandle,
-                    createdAt: doc.data().createdAt,
-                    commentCount: doc.data().commentCount,
-                    likeCount: doc.data().likeCount,
-                    userImage: doc.data().userImage,
+                  screamId: doc.id,
+                  body: doc.data().body,
+                  userHandle: doc.data().userHandle,
+                  createdAt: doc.data().createdAt,
+                  commentCount: doc.data().commentCount,
+                  likeCount: doc.data().likeCount,
+                  userImage: doc.data().userImage,
                 })
             });
             return res.json(screams);
@@ -37,14 +48,17 @@ exports.postOneScream = (req, res) => {
 
     // post を受け取っているはず
     const newScream = {
-        body: req.body.body,
-        // userHandle: req.body.userHandle,
-        userHandle: req.user.handle,
-        // createdAt: admin.firestore.Timestamp.fromDate(new Date())
-        createdAt: new Date().toISOString(),
-        userImage: req.user.imageUrl,
-        likeCount: 0,
-        commentCount: 0,
+      body: req.body.body,
+      // userHandle: req.body.userHandle,
+      userHandle: req.user.handle,
+      // createdAt: admin.firestore.Timestamp.fromDate(new Date())
+      // createdAt: new Date().toISOString(),
+      createdAt: dayjs.tz().format(),
+      userImage: req.user.imageUrl,
+      likeCount: 0,
+      commentCount: 0,
+      //追記
+      isLikedByUser: false,
     }
     // admin.firestore()
     db
@@ -92,42 +106,58 @@ exports.getScream = (req, res) => {
         });
 }
 
-// Comment on a comment
+// Comment on a scream
 exports.commentOnScream = (req, res) => {
-    // const body = JSON.parse(req.body)
-    // console.log(body.body)
-    console.log( 'commentOnScream', req.body);
-    
-    if (req.body.body.trim() === '') {
-        return res.status(400).json({ comment: 'Must not be empty'})
-    };
-    const newComment = {
-        body: req.body.body,
-        createdAt: new Date().toISOString(),
-        screamId: req.params.screamId,
-        userHandle: req.user.handle,
-        userImage: req.user.imageUrl
-    };
+  // const body = JSON.parse(req.body)
+  // console.log(body.body)
+  console.log('commentOnScream.body', req.body);
+  // console.log('commentOnScream.scream', req.scream);
+  // console.log('time', dayjs.tz().format());
+  
+  if (req.body.body.trim() === '') {
+    return res.status(400).json({ comment: 'Must not be empty'})
+  };
+  const newComment = {
+    body: req.body.body,
+    // createdAt: new Date().toISOString(),
+    createdAt: dayjs.tz().format(),
+    screamId: req.params.screamId,
+    userHandle: req.user.handle,
+    userImage: req.user.imageUrl
+  };
 
-    db.doc(`/screams/${req.params.screamId}`).get()
-        .then(doc => {            
-            if (!doc.exists) {
-                return res.status(404).json({ error: 'Scream not found' });
-            }
-            // return db.collection('comments').add(newComment)
-            
-            return doc.ref.update({commentCount: doc.data().commentCount + 1})
-        })
-        .then(() => {
-            return db.collection('comments').add(newComment)
-        })
-        .then(() => {
-            res.json(newComment);
-        })
-        .catch(err => {
-            console.log(err);
-            res.status(500).json({ error: 'Something went wrong' });
+  db.doc(`/screams/${req.params.screamId}`).get()
+    .then(doc => {            
+        if (!doc.exists) {
+            return res.status(404).json({ error: 'Scream not found' });
+        }
+        // return db.collection('comments').add(newComment)
         
+        return doc.ref.update({commentCount: doc.data().commentCount + 1})
+    })
+    .then(() => {
+        return db.collection('comments').add(newComment)
+    })
+    .then(() => {
+        res.json(newComment);
+    })
+    .then(() => {
+      const notification = {
+        createdAt: dayjs.tz().format(),
+        read: false,
+        recipient: req.body.scream.userHandle,
+        screamId: req.body.scream.screamId,
+        sender: req.body.sender,
+        type: 'comment'
+      }
+      db.collection('/notifications').add(notification)
+        .then(snapshot => {
+          console.log('notifications snapshot: ', snapshot)
+        });
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json({ error: 'Something went wrong' });
     })
 }
 
@@ -218,8 +248,7 @@ exports.likeScream = (req, res) => {
             };
         })
         .then(data => {
-            console.log(data)
-            
+            // console.log(data)
             if (data.empty) {
                 return db.collection('likes').add({
                     screamId: req.params.screamId,
@@ -227,7 +256,11 @@ exports.likeScream = (req, res) => {
                 })
                     .then(() => {
                         screamData.likeCount++
-                        return screamDocument.update({ likeCount: screamData.likeCount })
+                      return screamDocument.update(
+                        {
+                          likeCount: screamData.likeCount,
+                        }
+                      )
                     })
                     .then(() => {
                         return res.json(screamData);
@@ -277,7 +310,11 @@ exports.unlikeScream = (req, res) => {
           .delete()
           .then(() => {
             screamData.likeCount--;
-            return screamDocument.update({ likeCount: screamData.likeCount });
+            return screamDocument.update(
+              {
+                likeCount: screamData.likeCount,
+              }
+            );
           })
           .then(() => {
             res.json(screamData);

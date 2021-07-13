@@ -2,7 +2,15 @@ const functions = require("firebase-functions");
 const express = require('express');
 const app = express();
 const FBAuth = require('./util/fbAuth');
-const { db } = require('./util/admin')
+const { db } = require('./util/admin');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+dayjs.extend(require('dayjs/plugin/timezone'))
+dayjs.extend(require('dayjs/plugin/utc'))
+dayjs.tz.setDefault('Asia/Tokyo');
+dayjs.extend(utc);
+const cors = require('cors');
+app.use(cors());
 
 const {
     getAllScreams,
@@ -68,23 +76,27 @@ exports.api = functions.region('asia-northeast1').https.onRequest(app);
 exports.createNotificationOnLike = functions
   .region('asia-northeast1')
   .firestore.document('likes/{id}')
-  .onCreate((snapshot) => {
-    return db
-      .doc(`/screams/${snapshot.data().screamId}`)
-      .get()
-        .then((doc) => {
-        // 自分のscreamをlikeした時には通知を送らない
-        if (doc.exists && doc.data().userHandle !== snapshot.data().userHandle) {
-          return db.doc(`/notifications/${snapshot.id}`).set({
-            createdAt: new Date().toISOString(),
-            recipient: doc.data().userHandle,
-            sender: snapshot.data().userHandle,
-            type: 'like',
-            read: false,
-            screamId: doc.id
-          });
-        }
-      })
+    .onCreate((snapshot) => {
+        // console.log('onCreate like: ', snapshot);
+        return db
+        .doc(`/screams/${snapshot.data().screamId}`)
+        .get()
+            .then((doc) => {
+            // 自分のscreamをlikeした時には通知を送らない
+                if (doc.exists && doc.data().userHandle !== snapshot.data().userHandle) {
+                    return db
+                        .doc(`/notifications/${snapshot.id}`)
+                        .set({
+                            // createdAt: new Date().toISOString(),
+                            createdAt: dayjs.tz().format(),
+                            recipient: doc.data().userHandle,
+                            sender: snapshot.data().userHandle,
+                            type: 'like',
+                            read: false,
+                            screamId: doc.id
+                        });
+                }
+            })
       .catch((err) => console.error(err));
   });
 
@@ -105,25 +117,28 @@ exports.createNotificationOnComment = functions
     .region('asia-northeast1')
     .firestore.document('comments/{id}')
     .onCreate((snapshot) => {
-        db.doc(`/screams/${snapshot.data().screamId}`).get()
-            .then(doc => {
-                // 自分のscreamをlikeした時には通知を送らない
-                if (doc.exists && doc.data().userHandle !== snapshot.data().userHandle) {
+        return db
+            .doc(`/screams/${snapshot.data().screamId}`)
+            .get()
+            .then((doc) => {
+                if (
+                    doc.exists &&
+                    doc.data().userHandle !== snapshot.data().userHandle
+                ) {
                     return db.doc(`/notifications/${snapshot.id}`).set({
-                        createdAt: new Date().toISOString(),
+                        createdAt: dayjs.tz().format(),
                         recipient: doc.data().userHandle,
                         sender: snapshot.data().userHandle,
                         type: 'comment',
                         read: false,
-                        screamId: doc.id,
+                        screamId: doc.id
                     });
                 }
             })
-            .catch(err => {
+            .catch((err) => {
                 console.error(err);
                 return;
-            })
-        
+            });
     });
 
 // ユーザーがプロフィール画像を変更した時にscreamsの画像も変更するtriggerを作る
